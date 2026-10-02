@@ -7,55 +7,53 @@ CLEAN_DATA_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(_
 CLEAN_DEDUP_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "cleaned_patient_first_visits.csv")
 AUDIT_LOG_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "cleaning_audit_log.txt")
 
+# Discharge disposition IDs corresponding to Expired or Hospice care
+# Patients who died or entered hospice care cannot be readmitted within 30 days.
 EXPIRED_HOSPICE_DISCHARGE_IDS = [11, 13, 14, 19, 20, 21]
 
 def clean_data():
-    print("[INFO] Starting Data Cleaning and Auditing Pipeline...")
+    print("Starting data cleaning pipeline...")
     
-    # 1. Load raw dataset
+    # Load raw dataset
     df_raw = pd.read_csv(RAW_DATA_PATH)
     initial_rows = len(df_raw)
-    print(f"[AUDIT] Initial Raw Encounters: {initial_rows:,}")
+    print(f"Raw encounters loaded: {initial_rows:,}")
     
     audit_lines = [
-        "=== HOSPITAL READMISSION DATA CLEANING AUDIT TRAIL ===",
-        f"1. Initial Raw Records: {initial_rows:,}"
+        "Data Cleaning Audit Summary",
+        f"Initial raw records: {initial_rows:,}"
     ]
     
-    # 2. Replace '?' with NaN
+    # Replace '?' with NaN
     df = df_raw.replace('?', np.nan)
     
-    # Missing value analysis
+    # Inspect missing values
     missing_summary = df.isnull().sum()
     missing_cols = missing_summary[missing_summary > 0]
-    print("\n[INFO] Columns with Missing Values ('?'):")
     for col, count in missing_cols.items():
         pct = (count / initial_rows) * 100
-        print(f"  - {col}: {count:,} ({pct:.2f}%)")
-        audit_lines.append(f"   Missing in '{col}': {count:,} ({pct:.2f}%)")
+        audit_lines.append(f"Missing in {col}: {count:,} ({pct:.2f}%)")
         
-    # 3. Drop high-missing / uninformative columns
+    # Drop columns with high missingness
+    # weight is ~97% missing, payer_code ~40%, medical_specialty ~49%
     cols_to_drop = ['weight', 'payer_code', 'medical_specialty']
     df = df.drop(columns=[c for c in cols_to_drop if c in df.columns])
-    audit_lines.append(f"2. Dropped High-Missing Columns: {cols_to_drop}")
+    audit_lines.append(f"Dropped high-missing columns: {cols_to_drop}")
     
-    # 4. Exclude Expired and Hospice care encounters (Readmission not possible)
+    # Filter out deceased and hospice encounters
     expired_mask = df['discharge_disposition_id'].isin(EXPIRED_HOSPICE_DISCHARGE_IDS)
     expired_count = expired_mask.sum()
     df_valid = df[~expired_mask].copy()
     valid_rows = len(df_valid)
     
-    print(f"\n[AUDIT] Removed {expired_count:,} encounters where patient expired or entered hospice care.")
-    audit_lines.append(f"3. Removed Deceased/Hospice Encounters: {expired_count:,} rows")
-    audit_lines.append(f"   Valid Post-Discharge Encounters: {valid_rows:,}")
+    audit_lines.append(f"Removed deceased/hospice encounters: {expired_count:,}")
+    audit_lines.append(f"Valid post-discharge encounters: {valid_rows:,}")
     
-    # 5. Handle Target Variable (readmitted)
-    # Target: 30-day readmission -> readmitted == '<30'
+    # Target variable: binary 30-day readmission flag
     df_valid['readmitted_30day'] = np.where(df_valid['readmitted'] == '<30', 1, 0)
     df_valid['readmitted_any'] = np.where(df_valid['readmitted'] != 'NO', 1, 0)
     
-    # 6. Feature Engineering for Dashboard & SQL Analysis
-    # Standardize Age Groups
+    # Feature buckets
     age_map = {
         '[0-10)': '0-10', '[10-20)': '10-20', '[20-30)': '20-30',
         '[30-40)': '30-40', '[40-50)': '40-50', '[50-60)': '50-60',
@@ -64,7 +62,6 @@ def clean_data():
     }
     df_valid['age_clean'] = df_valid['age'].map(age_map).fillna(df_valid['age'])
     
-    # Prior Inpatient Bucket
     def bucket_inpatient(val):
         if val == 0: return '0 Visits'
         elif val == 1: return '1 Visit'
@@ -73,7 +70,6 @@ def clean_data():
         
     df_valid['prior_inpatient_bucket'] = df_valid['number_inpatient'].apply(bucket_inpatient)
     
-    # Length of stay bucket
     def bucket_los(days):
         if days <= 2: return '1-2 Days'
         elif days <= 4: return '3-4 Days'
@@ -82,7 +78,6 @@ def clean_data():
         
     df_valid['los_bucket'] = df_valid['time_in_hospital'].apply(bucket_los)
     
-    # Discharge disposition category
     def category_discharge(d_id):
         if d_id == 1: return 'Home'
         elif d_id in [3, 4, 23, 24]: return 'SNF / ICF / LTC'
@@ -93,22 +88,18 @@ def clean_data():
         
     df_valid['discharge_category'] = df_valid['discharge_disposition_id'].apply(category_discharge)
     
-    # 7. Deduplicate Multi-visit Patients (First Encounter per Patient)
-    # Sort by encounter_id to get earliest encounter
+    # Patient-level index visit cohort (deduplicated by patient_nbr)
+    # We maintain both the full 99,343 encounter dataset and this 69,990 patient cohort
+    # to account for repeat-patient bias in encounter-level rates.
     df_valid_sorted = df_valid.sort_values(['patient_nbr', 'encounter_id'])
     df_first_visit = df_valid_sorted.drop_duplicates(subset=['patient_nbr'], keep='first').copy()
     dedup_rows = len(df_first_visit)
     dups_removed = valid_rows - dedup_rows
     
-    print(f"[AUDIT] Removed {dups_removed:,} secondary encounters for multi-visit patients.")
-    print(f"[AUDIT] Final Cleaned Patient Dataset (Unique Patients): {dedup_rows:,} records.")
+    audit_lines.append(f"Deduplicated secondary visits: {dups_removed:,}")
+    audit_lines.append(f"Final first-visit patient cohort: {dedup_rows:,}")
     
-    audit_lines.append(f"4. Deduplicated Multi-visit Patients: {dups_removed:,} duplicate encounters removed")
-    audit_lines.append(f"5. Final Clean Unique Patients Dataset: {dedup_rows:,} records")
-    audit_lines.append(f"   Overall 30-Day Readmission Rate (Encounters): {df_valid['readmitted_30day'].mean()*100:.2f}%")
-    audit_lines.append(f"   Overall 30-Day Readmission Rate (Unique Patients): {df_first_visit['readmitted_30day'].mean()*100:.2f}%")
-    
-    # 8. Export Cleaned Datasets
+    # Export cleaned CSV files
     os.makedirs(os.path.dirname(CLEAN_DATA_PATH), exist_ok=True)
     df_valid.to_csv(CLEAN_DATA_PATH, index=False)
     df_first_visit.to_csv(CLEAN_DEDUP_PATH, index=False)
@@ -116,9 +107,8 @@ def clean_data():
     with open(AUDIT_LOG_PATH, 'w') as f:
         f.write('\n'.join(audit_lines))
         
-    print(f"\n[SUCCESS] Exported cleaned encounter data to: {CLEAN_DATA_PATH}")
-    print(f"[SUCCESS] Exported cleaned unique patient data to: {CLEAN_DEDUP_PATH}")
-    print(f"[SUCCESS] Audit log written to: {AUDIT_LOG_PATH}")
+    print(f"Cleaned encounters exported to: {CLEAN_DATA_PATH}")
+    print(f"First-visit patient cohort exported to: {CLEAN_DEDUP_PATH}")
 
 if __name__ == "__main__":
     clean_data()

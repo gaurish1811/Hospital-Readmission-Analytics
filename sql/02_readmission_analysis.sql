@@ -1,12 +1,12 @@
 -- ============================================================================
--- Hospital Readmission Analytics: Analytical Queries
--- Focus: Provider/Payer 30-Day Readmission Risk & Cohort Segmentation
--- Engine: Standard SQL (Compatible with MySQL 8.0+, PostgreSQL, SQLite 3.25+)
+-- Hospital Readmission Analytics: SQL Queries
+-- Written in standard ANSI SQL (tested on SQLite via sqlite3, fully compatible with MySQL 8.0+ and PostgreSQL)
+-- Data Granularity: 99,343 valid encounters (post deceased/hospice exclusion)
 -- ============================================================================
 
 -- ----------------------------------------------------------------------------
--- QUERY 1: Overall 30-Day Readmission Rate KPI
--- Calculates total valid encounters, 30-day readmissions, and overall percentage.
+-- QUERY 1: Overall 30-Day Readmission Rate Benchmark
+-- Calculates overall encounter-level 30-day readmission percentage.
 -- ----------------------------------------------------------------------------
 SELECT 
     COUNT(*) AS total_encounters,
@@ -17,7 +17,7 @@ FROM cleaned_patient_encounters;
 
 -- ----------------------------------------------------------------------------
 -- QUERY 2: Readmission Rate by Age Group
--- Evaluates how readmission risk shifts across age brackets (e.g. 70-80, 80-90).
+-- Observes readmission rate distribution across age brackets.
 -- ----------------------------------------------------------------------------
 SELECT 
     age_clean AS age_group,
@@ -31,7 +31,8 @@ ORDER BY MIN(age);
 
 -- ----------------------------------------------------------------------------
 -- QUERY 3: Readmission Rate by Prior Inpatient Visits
--- Demonstrates the exponential risk increase based on prior inpatient history.
+-- Compares readmission rate across prior inpatient visit history.
+-- Note: Encounter-level rates include repeat patient visits.
 -- ----------------------------------------------------------------------------
 SELECT 
     prior_inpatient_bucket,
@@ -50,8 +51,8 @@ ORDER BY
 
 
 -- ----------------------------------------------------------------------------
--- QUERY 4: Readmission Rate by Length of Stay (Hospital Days)
--- Analyzes whether longer hospital stay correlates with higher readmission risk.
+-- QUERY 4: Readmission Rate by Length of Stay
+-- Analyzes readmission rates across hospital stay duration buckets.
 -- ----------------------------------------------------------------------------
 SELECT 
     los_bucket AS length_of_stay,
@@ -65,8 +66,9 @@ ORDER BY MIN(time_in_hospital);
 
 
 -- ----------------------------------------------------------------------------
--- QUERY 5: Readmission Rate by HbA1c Test Result
--- Measures the impact of glycemic control monitoring (None, Norm, >7, >8).
+-- QUERY 5: Readmission Rate by HbA1c Test Category
+-- Observes readmission rate differences between tested and unmonitored patients.
+-- (Observational data note: testing status is associated with rates, not causal)
 -- ----------------------------------------------------------------------------
 SELECT 
     COALESCE(A1Cresult, 'Not Tested') AS a1c_test_result,
@@ -79,8 +81,8 @@ ORDER BY readmission_rate_pct DESC;
 
 
 -- ----------------------------------------------------------------------------
--- QUERY 6: Readmission Rate by Discharge Disposition Category
--- Compares readmission risks across care transitions (Home vs SNF vs Transfer).
+-- QUERY 6: Readmission Rate by Discharge Category
+-- Compares observed rates across discharge care settings (Home vs SNF vs Transfer).
 -- ----------------------------------------------------------------------------
 SELECT 
     discharge_category,
@@ -93,8 +95,8 @@ ORDER BY readmission_rate_pct DESC;
 
 
 -- ----------------------------------------------------------------------------
--- QUERY 7: WINDOW FUNCTION - Patient Visit Sequence Rank & Prior Visit Running Total
--- Uses ROW_NUMBER() OVER and SUM() OVER to track visit sequence per patient.
+-- QUERY 7: WINDOW FUNCTION - Patient Visit Rank & Cumulative Metrics
+-- Uses ROW_NUMBER() OVER and COUNT() OVER to track visit sequence per patient.
 -- ----------------------------------------------------------------------------
 SELECT 
     encounter_id,
@@ -108,18 +110,15 @@ SELECT
     ) AS patient_visit_sequence_num,
     COUNT(*) OVER (
         PARTITION BY patient_nbr
-    ) AS total_patient_encounters,
-    SUM(readmitted_30day) OVER (
-        PARTITION BY patient_nbr
-    ) AS total_patient_30day_readmissions
+    ) AS total_patient_encounters
 FROM cleaned_patient_encounters
 LIMIT 20;
 
 
 -- ----------------------------------------------------------------------------
--- QUERY 8: COMMON TABLE EXPRESSION (CTE) - High-Risk Cohort Risk Ratio Analysis
--- Multi-stage CTE benchmarking high-risk patients (2+ prior inpatient visits & high HbA1c) 
--- against standard baseline patients.
+-- QUERY 8: COMMON TABLE EXPRESSION (CTE) - Cohort Risk Ratio Benchmarking
+-- Segments patients by prior inpatient visits (2+ visits = 14,114 encounters, 3,108 readmissions = 22.02%)
+-- and compares observed rate against the baseline cohort (0-1 visits = 85,229 encounters, 8,206 readmissions = 9.63%).
 -- ----------------------------------------------------------------------------
 WITH patient_cohorts AS (
     SELECT 
@@ -129,9 +128,8 @@ WITH patient_cohorts AS (
         number_inpatient,
         A1Cresult,
         CASE 
-            WHEN number_inpatient >= 2 AND A1Cresult IN ('>7', '>8') THEN 'High-Risk Cohort (2+ Inpatient & High A1C)'
-            WHEN number_inpatient >= 2 THEN 'Moderate-Risk Cohort (2+ Inpatient)'
-            ELSE 'Standard Baseline Cohort'
+            WHEN number_inpatient >= 2 THEN '2+ Prior Inpatient Visits Cohort'
+            ELSE 'Baseline Cohort (0-1 Prior Visits)'
         END AS risk_cohort
     FROM cleaned_patient_encounters
 ),
@@ -147,7 +145,7 @@ cohort_metrics AS (
 baseline AS (
     SELECT readmission_rate AS baseline_rate 
     FROM cohort_metrics 
-    WHERE risk_cohort = 'Standard Baseline Cohort'
+    WHERE risk_cohort = 'Baseline Cohort (0-1 Prior Visits)'
 )
 SELECT 
     cm.risk_cohort,

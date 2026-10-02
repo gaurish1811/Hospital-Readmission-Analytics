@@ -161,7 +161,6 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('kpi-rate').innerText = `${updatedRate}%`;
         document.getElementById('kpi-count').innerText = `${Math.round(totalCount * (updatedRate / 100)).toLocaleString()} Encounters`;
 
-        // Subtle animation pulse
         const kpiRateElem = document.getElementById('kpi-rate');
         kpiRateElem.style.color = updatedRate > 15 ? '#f43f5e' : '#ffffff';
     }
