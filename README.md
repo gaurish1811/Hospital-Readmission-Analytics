@@ -9,11 +9,18 @@ In value-based healthcare, 30-day readmission is a core performance metric. Unde
 
 ---
 
+## 🔗 Live Dashboards & Links
+- **Tableau Public Interactive Dashboard**: [https://public.tableau.com/app/profile/gaurish.2703/viz/HospitalReadmissionAnalytics_17909067940160/Story1](https://public.tableau.com/app/profile/gaurish.2703/viz/HospitalReadmissionAnalytics_17909067940160/Story1)
+- **Local Glassmorphism HTML Dashboard**: [`dashboard/index.html`](dashboard/index.html)
+- **Tableau Setup Guide**: [`dashboard/TABLEAU_GUIDE.md`](dashboard/TABLEAU_GUIDE.md)
+
+---
+
 ## Tech Stack & Data Architecture
 - **Data Engineering**: Python (`pandas`, `numpy`)
 - **Exploratory Data Analysis**: Jupyter Notebook ([`notebooks/01_hospital_readmission_cleaning.ipynb`](notebooks/01_hospital_readmission_cleaning.ipynb))
 - **SQL Analysis**: Standard ANSI SQL (tested on SQLite via `sqlite3`, fully compatible with MySQL 8.0+ and PostgreSQL)
-- **Visualizations**: HTML5, CSS3 Glassmorphism UI, Chart.js, and Tableau Public ([`dashboard/TABLEAU_GUIDE.md`](dashboard/TABLEAU_GUIDE.md))
+- **Visualizations**: Tableau Public, HTML5/CSS3 Glassmorphism UI, Chart.js
 
 ---
 
