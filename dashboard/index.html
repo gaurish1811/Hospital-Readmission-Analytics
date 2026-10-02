@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hospital Readmission Analytics | Innovaccer Provider Dashboard</title>
+    <!-- Inter Font & Chart.js -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Header -->
+        <header class="dashboard-header">
+            <div class="header-brand">
+                <div class="logo-icon">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                    </svg>
+                </div>
+                <div>
+                    <h1>Hospital Readmission Analytics</h1>
+                    <p class="subtitle">30-Day Readmission Risk & Patient Cohort Intelligence | UCI Diabetes Dataset</p>
+                </div>
+            </div>
+            <div class="header-badge">
+                <span class="pulse-dot"></span> Provider & Payer Intelligence Platform
+            </div>
+        </header>
+
+        <!-- Filter Bar -->
+        <section class="filter-section">
+            <div class="filter-group">
+                <label for="filter-age">Age Cohort</label>
+                <select id="filter-age" class="filter-select">
+                    <option value="ALL">All Age Groups</option>
+                    <option value="50-60">50-60 Years</option>
+                    <option value="60-70">60-70 Years</option>
+                    <option value="70-80">70-80 Years</option>
+                    <option value="80-90">80-90 Years</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="filter-a1c">HbA1c Status</label>
+                <select id="filter-a1c" class="filter-select">
+                    <option value="ALL">All Test Results</option>
+                    <option value="None">Not Tested</option>
+                    <option value="Norm">Normal (< 7%)</option>
+                    <option value=">7">> 7%</option>
+                    <option value=">8">> 8%</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label for="filter-inpatient">Prior Inpatient Visits</label>
+                <select id="filter-inpatient" class="filter-select">
+                    <option value="ALL">All Encounter Histories</option>
+                    <option value="0">0 Prior Visits</option>
+                    <option value="1">1 Prior Visit</option>
+                    <option value="2">2 Prior Visits</option>
+                    <option value="3+">3+ Prior Visits</option>
+                </select>
+            </div>
+            <button id="reset-filters" class="reset-btn">Reset Filters</button>
+        </section>
+
+        <!-- KPI Cards Grid -->
+        <section class="kpi-grid">
+            <div class="kpi-card">
+                <div class="kpi-header">
+                    <span class="kpi-title">Overall 30-Day Readmission Rate</span>
+                    <span class="kpi-icon danger">🚨</span>
+                </div>
+                <div class="kpi-value" id="kpi-rate">11.39%</div>
+                <div class="kpi-subtext" id="kpi-count">11,314 out of 99,343 Encounters</div>
+            </div>
+
+            <div class="kpi-card">
+                <div class="kpi-header">
+                    <span class="kpi-title">Total Cleaned Encounters</span>
+                    <span class="kpi-icon info">🏥</span>
+                </div>
+                <div class="kpi-value" id="kpi-total">99,343</div>
+                <div class="kpi-subtext">Post Deceased & Hospice Exclusion</div>
+            </div>
+
+            <div class="kpi-card">
+                <div class="kpi-header">
+                    <span class="kpi-title">High-Risk Cohort (2+ Inpatient)</span>
+                    <span class="kpi-icon warning">⚠️</span>
+                </div>
+                <div class="kpi-value" id="kpi-highrisk">22.22%</div>
+                <div class="kpi-subtext">2.31x Baseline Readmission Risk</div>
+            </div>
+
+            <div class="kpi-card">
+                <div class="kpi-header">
+                    <span class="kpi-title">Avg Length of Hospital Stay</span>
+                    <span class="kpi-icon primary">⏱️</span>
+                </div>
+                <div class="kpi-value" id="kpi-los">4.40 Days</div>
+                <div class="kpi-subtext">Avg 43.1 Lab Tests per Visit</div>
+            </div>
+        </section>
+
+        <!-- Main Analytics Charts Grid -->
+        <section class="charts-grid">
+            <!-- Chart 1: Readmission by Age Group -->
+            <div class="chart-card">
+                <div class="chart-card-header">
+                    <h3>30-Day Readmission Rate by Age Bracket</h3>
+                    <span class="chart-badge">Age Distribution</span>
+                </div>
+                <div class="chart-container">
+                    <canvas id="chart-age"></canvas>
+                </div>
+            </div>
+
+            <!-- Chart 2: Readmission vs Prior Inpatient Visits -->
+            <div class="chart-card">
+                <div class="chart-card-header">
+                    <h3>Readmission Rate vs. Prior Inpatient Visits</h3>
+                    <span class="chart-badge alert">Key Risk Driver</span>
+                </div>
+                <div class="chart-container">
+                    <canvas id="chart-inpatient"></canvas>
+                </div>
+            </div>
+
+            <!-- Chart 3: Readmission by HbA1c Result -->
+            <div class="chart-card">
+                <div class="chart-card-header">
+                    <h3>Glycemic Control (HbA1c) Impact on Readmission</h3>
+                    <span class="chart-badge">Lab Metrics</span>
+                </div>
+                <div class="chart-container">
+                    <canvas id="chart-a1c"></canvas>
+                </div>
+            </div>
+
+            <!-- Chart 4: Readmission by Discharge Category -->
+            <div class="chart-card">
+                <div class="chart-card-header">
+                    <h3>Readmission Rate by Discharge Disposition</h3>
+                    <span class="chart-badge">Transition of Care</span>
+                </div>
+                <div class="chart-container">
+                    <canvas id="chart-discharge"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- Executive Key Insights Box -->
+        <section class="insights-card">
+            <h2>💡 Key Analytics & Healthcare Insights</h2>
+            <div class="insights-grid">
+                <div class="insight-item">
+                    <h4>1. Prior Inpatient Visits is the #1 Predictor</h4>
+                    <p>Patients with <strong>3+ prior inpatient visits</strong> experience a <strong>26.40% 30-day readmission rate</strong> — more than 3x the baseline rate (8.59%) for patients with zero prior visits.</p>
+                </div>
+                <div class="insight-item">
+                    <h4>2. Post-Acute Care Transition Risk</h4>
+                    <p>Discharges to <strong>Rehab/Transfers (21.88%)</strong> and <strong>Skilled Nursing Facilities (14.36%)</strong> exhibit significantly higher readmissions than home discharges (9.30%), pointing to care coordination gaps.</p>
+                </div>
+                <div class="insight-item">
+                    <h4>3. HbA1c Testing Gap</h4>
+                    <p>Over <strong>83% of hospital encounters had no HbA1c test recorded</strong>. Tested patients whose diabetes medication was adjusted saw lower readmission rates, emphasizing proactive inpatient glycemic management.</p>
+                </div>
+                <div class="insight-item">
+                    <h4>4. Senior Cohort Concentration</h4>
+                    <p>Patients aged <strong>70-90 years account for over 42% of total encounters</strong> and maintain above-average readmission rates (12.06%–12.57%), indicating high frailty and complex comorbidity loads.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="dashboard-footer">
+            <p>Designed for Innovaccer Healthcare Analytics Case Study | Built with HTML5, CSS3, Chart.js & SQL</p>
+        </footer>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

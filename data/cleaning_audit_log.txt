@@ -1,0 +1,18 @@
+=== HOSPITAL READMISSION DATA CLEANING AUDIT TRAIL ===
+1. Initial Raw Records: 101,766
+   Missing in 'race': 2,273 (2.23%)
+   Missing in 'weight': 98,569 (96.86%)
+   Missing in 'payer_code': 40,256 (39.56%)
+   Missing in 'medical_specialty': 49,949 (49.08%)
+   Missing in 'diag_1': 21 (0.02%)
+   Missing in 'diag_2': 358 (0.35%)
+   Missing in 'diag_3': 1,423 (1.40%)
+   Missing in 'max_glu_serum': 96,420 (94.75%)
+   Missing in 'A1Cresult': 84,748 (83.28%)
+2. Dropped High-Missing Columns: ['weight', 'payer_code', 'medical_specialty']
+3. Removed Deceased/Hospice Encounters: 2,423 rows
+   Valid Post-Discharge Encounters: 99,343
+4. Deduplicated Multi-visit Patients: 29,353 duplicate encounters removed
+5. Final Clean Unique Patients Dataset: 69,990 records
+   Overall 30-Day Readmission Rate (Encounters): 11.39%
+   Overall 30-Day Readmission Rate (Unique Patients): 8.98%
